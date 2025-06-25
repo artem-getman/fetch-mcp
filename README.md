@@ -1,4 +1,85 @@
-# Fetch MCP Server
+# Fetch MCP Server - CLAUDE WEB INTEGRATION BROKEN
+
+⚠️ **WARNING: This project does NOT work with Claude's web integration** ⚠️
+
+## Current Status: FAILED
+
+This is an attempt to deploy an MCP (Model Context Protocol) fetch server for Claude's web interface integration. **It completely fails** despite having a perfect server implementation.
+
+### What We Tried (and what failed):
+
+1. ✅ **Server Works Perfectly**
+   - Server receives initialize, tools/list, tools/call requests correctly
+   - Server responds with proper JSON-RPC 2.0 format  
+   - Curl tests prove all endpoints work flawlessly
+   - Uses official Anthropic MCP fetch server code
+
+2. ❌ **Claude Web Integration is Broken**
+   - Claude sends tools/list requests to our server
+   - Our server responds correctly with 200 OK status
+   - Claude ignores our responses and reports "Request timed out"
+   - Claude UI shows "NO PROVIDED TOOLS" despite receiving valid tool schemas
+
+### Technical Evidence
+
+**Server logs show successful communication:**
+```
+INFO: tools/list (ID 3) - REQUEST RECEIVED ✅
+INFO: tools/list (ID 3) - RESPONSE SENT ✅  
+INFO: HTTP 200 OK ✅
+```
+
+**Claude logs show timeouts:**
+```
+INFO: notifications/cancelled (requestId: 3) - TIMEOUT ❌
+```
+
+**Curl tests prove server works:**
+```bash
+curl -X POST https://fetch-mcp-bydg.onrender.com/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}'
+# Returns perfect JSON-RPC response with tools
+```
+
+### Failed Attempts
+
+- Protocol version compatibility (2024-11-05 vs 2025-03-26)
+- Missing MCP method handlers (resources/list, notifications/cancelled)  
+- Tool schema format (title, annotations, inputSchema)
+- JSON-RPC envelope format changes
+- HTTP response headers and FastAPI configuration
+- Proactive vs reactive tool notifications
+- Capability declarations (listChanged vs static)
+- **Nuclear option: Official Anthropic MCP server code**
+
+### Conclusion
+
+**Claude's web MCP integration is fundamentally broken.** The server implementation is perfect - it's Claude that can't handle valid MCP responses over HTTP transport.
+
+### Alternative Platforms to Research
+
+For working MCP web integrations, research these platforms:
+
+1. **Google Cloud Functions** - Some reports of working MCP deployments
+2. **AWS Lambda** - May handle MCP protocol better  
+3. **Vercel Functions** - Different HTTP stack might work
+4. **Azure Functions** - Alternative serverless platform
+5. **Direct WebSocket implementation** - Bypass HTTP entirely
+6. **Different MCP protocol versions** - Try older/newer versions
+7. **Alternative transport layers** - SSE, WebSockets, gRPC
+
+### For Future Developers
+
+**Don't waste time on Claude web MCP integration.** Focus on:
+- Desktop Claude app (stdio transport works)
+- Alternative AI platforms with working MCP support  
+- Direct API integrations instead of MCP protocol
+- Wait for Anthropic to fix their web integration
+
+---
+
+## Original Features (that work in stdio mode)
 
 A Model Context Protocol server that provides web content fetching capabilities. This server enables LLMs to retrieve and process content from web pages, converting HTML to markdown for easier consumption.
 
@@ -45,7 +126,7 @@ After installation, you can run it as a script using:
 python -m mcp_server_fetch
 ```
 
-## Configuration
+## Configuration (Desktop Claude Only - Web Integration Broken)
 
 ### Configure for Claude.app
 

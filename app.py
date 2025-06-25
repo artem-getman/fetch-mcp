@@ -1,6 +1,10 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
 import asyncio, time
+import json
+from mcp_server_fetch.server import fetch_url, Fetch, check_may_autonomously_fetch_url
+from mcp.types import TextContent
+from pydantic import ValidationError
 
 app = FastAPI()
 
@@ -9,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"]
 )
 
@@ -84,4 +88,85 @@ async def root():
 @app.get("/favicon.ico")
 async def favicon():
     return Response(status_code=204)
+
+# MCP Protocol endpoints for Claude integration
+@app.get("/mcp/tools")
+async def list_tools():
+    """List available MCP tools"""
+    return {
+        "tools": [
+            {
+                "name": "fetch",
+                "description": """Fetches a URL from the internet and optionally extracts its contents as markdown.
+
+Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.""",
+                "inputSchema": Fetch.model_json_schema()
+            }
+        ]
+    }
+
+@app.post("/mcp/tools/call")
+async def call_tool(request: Request):
+    """Execute an MCP tool"""
+    try:
+        data = await request.json()
+        tool_name = data.get("name")
+        arguments = data.get("arguments", {})
+        
+        if tool_name != "fetch":
+            return {"error": "Unknown tool"}
+        
+        # Parse and validate arguments
+        try:
+            args = Fetch(**arguments)
+        except ValidationError as e:
+            return {"error": f"Invalid arguments: {str(e)}"}
+        
+        url = str(args.url)
+        if not url:
+            return {"error": "URL is required"}
+        
+        # Check robots.txt (you can make this configurable)
+        try:
+            await check_may_autonomously_fetch_url(url, "ModelContextProtocol/1.0 (Autonomous; +https://github.com/modelcontextprotocol/servers)")
+        except Exception as e:
+            return {"error": f"Robots.txt check failed: {str(e)}"}
+        
+        # Fetch the URL
+        try:
+            content, prefix = await fetch_url(
+                url, 
+                "ModelContextProtocol/1.0 (Autonomous; +https://github.com/modelcontextprotocol/servers)",
+                force_raw=args.raw
+            )
+            
+            # Handle pagination
+            original_length = len(content)
+            if args.start_index >= original_length:
+                content = "<error>No more content available.</error>"
+            else:
+                truncated_content = content[args.start_index : args.start_index + args.max_length]
+                if not truncated_content:
+                    content = "<error>No more content available.</error>"
+                else:
+                    content = truncated_content
+                    actual_content_length = len(truncated_content)
+                    remaining_content = original_length - (args.start_index + actual_content_length)
+                    if actual_content_length == args.max_length and remaining_content > 0:
+                        next_start = args.start_index + actual_content_length
+                        content += f"\n\n<error>Content truncated. Call the fetch tool with a start_index of {next_start} to get more content.</error>"
+            
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"{prefix}Contents of {url}:\n{content}"
+                    }
+                ]
+            }
+        except Exception as e:
+            return {"error": f"Failed to fetch URL: {str(e)}"}
+    
+    except Exception as e:
+        return {"error": f"Request processing failed: {str(e)}"}
 

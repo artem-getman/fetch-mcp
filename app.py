@@ -113,7 +113,25 @@ async def handle_mcp(request: Request):
         params = data.get("params", {})
         request_id = data.get("id")
         
-        if method == "tools/list":
+        if method == "initialize":
+            # MCP initialization handshake
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                        "tools": {},
+                        "prompts": {}
+                    },
+                    "serverInfo": {
+                        "name": "fetch-mcp",
+                        "version": "1.0.0"
+                    }
+                }
+            }
+        
+        elif method == "tools/list":
             # Return available tools
             return {
                 "jsonrpc": "2.0",

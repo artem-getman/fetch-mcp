@@ -89,84 +89,126 @@ async def root():
 async def favicon():
     return Response(status_code=204)
 
-# MCP Protocol endpoints for Claude integration
-@app.get("/mcp/tools")
-async def list_tools():
-    """List available MCP tools"""
-    return {
-        "tools": [
-            {
-                "name": "fetch",
-                "description": """Fetches a URL from the internet and optionally extracts its contents as markdown.
-
-Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.""",
-                "inputSchema": Fetch.model_json_schema()
-            }
-        ]
-    }
-
-@app.post("/mcp/tools/call")
-async def call_tool(request: Request):
-    """Execute an MCP tool"""
+# MCP Protocol JSON-RPC 2.0 endpoint
+@app.post("/mcp")
+async def handle_mcp(request: Request):
+    """Handle MCP JSON-RPC 2.0 requests"""
     try:
         data = await request.json()
-        tool_name = data.get("name")
-        arguments = data.get("arguments", {})
         
-        if tool_name != "fetch":
-            return {"error": "Unknown tool"}
+        # Validate JSON-RPC 2.0 format
+        if data.get("jsonrpc") != "2.0":
+            return {
+                "jsonrpc": "2.0",
+                "id": data.get("id"),
+                "error": {"code": -32600, "message": "Invalid Request"}
+            }
         
-        # Parse and validate arguments
-        try:
-            args = Fetch(**arguments)
-        except ValidationError as e:
-            return {"error": f"Invalid arguments: {str(e)}"}
+        method = data.get("method")
+        params = data.get("params", {})
+        request_id = data.get("id")
         
-        url = str(args.url)
-        if not url:
-            return {"error": "URL is required"}
+        if method == "tools/list":
+            # Return available tools
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "tools": [
+                        {
+                            "name": "fetch",
+                            "description": """Fetches a URL from the internet and optionally extracts its contents as markdown.
+
+Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.""",
+                            "inputSchema": Fetch.model_json_schema()
+                        }
+                    ]
+                }
+            }
         
-        # Check robots.txt (you can make this configurable)
-        try:
-            await check_may_autonomously_fetch_url(url, "ModelContextProtocol/1.0 (Autonomous; +https://github.com/modelcontextprotocol/servers)")
-        except Exception as e:
-            return {"error": f"Robots.txt check failed: {str(e)}"}
-        
-        # Fetch the URL
-        try:
-            content, prefix = await fetch_url(
-                url, 
-                "ModelContextProtocol/1.0 (Autonomous; +https://github.com/modelcontextprotocol/servers)",
-                force_raw=args.raw
-            )
+        elif method == "tools/call":
+            # Execute tool
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
             
-            # Handle pagination
-            original_length = len(content)
-            if args.start_index >= original_length:
-                content = "<error>No more content available.</error>"
-            else:
-                truncated_content = content[args.start_index : args.start_index + args.max_length]
-                if not truncated_content:
+            if tool_name != "fetch":
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32601, "message": "Method not found"}
+                }
+            
+            try:
+                # Parse and validate arguments
+                args = Fetch(**arguments)
+                url = str(args.url)
+                
+                # Check robots.txt
+                await check_may_autonomously_fetch_url(
+                    url, 
+                    "ModelContextProtocol/1.0 (Autonomous; +https://github.com/modelcontextprotocol/servers)"
+                )
+                
+                # Fetch the URL
+                content, prefix = await fetch_url(
+                    url, 
+                    "ModelContextProtocol/1.0 (Autonomous; +https://github.com/modelcontextprotocol/servers)",
+                    force_raw=args.raw
+                )
+                
+                # Handle pagination
+                original_length = len(content)
+                if args.start_index >= original_length:
                     content = "<error>No more content available.</error>"
                 else:
-                    content = truncated_content
-                    actual_content_length = len(truncated_content)
-                    remaining_content = original_length - (args.start_index + actual_content_length)
-                    if actual_content_length == args.max_length and remaining_content > 0:
-                        next_start = args.start_index + actual_content_length
-                        content += f"\n\n<error>Content truncated. Call the fetch tool with a start_index of {next_start} to get more content.</error>"
-            
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"{prefix}Contents of {url}:\n{content}"
+                    truncated_content = content[args.start_index : args.start_index + args.max_length]
+                    if not truncated_content:
+                        content = "<error>No more content available.</error>"
+                    else:
+                        content = truncated_content
+                        actual_content_length = len(truncated_content)
+                        remaining_content = original_length - (args.start_index + actual_content_length)
+                        if actual_content_length == args.max_length and remaining_content > 0:
+                            next_start = args.start_index + actual_content_length
+                            content += f"\n\n<error>Content truncated. Call the fetch tool with a start_index of {next_start} to get more content.</error>"
+                
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"{prefix}Contents of {url}:\n{content}"
+                            }
+                        ]
                     }
-                ]
+                }
+                
+            except ValidationError as e:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32602, "message": f"Invalid params: {str(e)}"}
+                }
+            except Exception as e:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32603, "message": f"Internal error: {str(e)}"}
+                }
+        
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": -32601, "message": "Method not found"}
             }
-        except Exception as e:
-            return {"error": f"Failed to fetch URL: {str(e)}"}
     
     except Exception as e:
-        return {"error": f"Request processing failed: {str(e)}"}
+        return {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32700, "message": "Parse error"}
+        }
 

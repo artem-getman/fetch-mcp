@@ -32,22 +32,29 @@ async def sse_post() -> StreamingResponse:
 
 # -- Minimal OAuth2 discovery & dynamic client registration stubs --
 @app.get("/.well-known/oauth-authorization-server")
-async def oauth_discovery():
+async def oauth_discovery(request: Request):
+    base = str(request.base_url).rstrip("/")  # e.g. https://fetch-mcp-bydg.onrender.com
     return {
-        "issuer": "https://fetch-mcp",
-        "authorization_endpoint": "https://fetch-mcp/authorize",
-        "token_endpoint": "https://fetch-mcp/token",
-        "registration_endpoint": "/register",
+        "issuer": base,
+        "authorization_endpoint": f"{base}/authorize",
+        "token_endpoint": f"{base}/token",
+        "registration_endpoint": f"{base}/register",
+        "grant_types_supported": ["client_credentials"],
+        "response_types_supported": ["token"],
     }
 
 @app.post("/register")
 async def oauth_register():
-    # Return a dummy public client so the UI finishes handshake
     return {
         "client_id": "fetch-mcp-public-client",
-        "client_id_issued_at": 0,
+        "client_id_issued_at": int(time.time()),
         "token_endpoint_auth_method": "none",
     }
+
+@app.post("/token")
+async def oauth_token():
+    # Return a static bearer token; no real auth
+    return {"access_token": "dummy", "token_type": "bearer", "expires_in": 3600}
 
 # Quiet 404s for / and favicons
 @app.get("/")

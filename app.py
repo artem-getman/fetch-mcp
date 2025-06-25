@@ -211,6 +211,23 @@ async def handle_mcp(request: Request):
             logger.info("Received notifications/initialized - no response needed")
             return Response(status_code=204)
         
+        elif method == "notifications/cancelled":
+            # Claude sends timeout notifications that we should acknowledge - no response needed
+            logger.info("Received notifications/cancelled - no response needed")
+            return Response(status_code=204)
+        
+        elif method == "resources/list":
+            # Return empty resources list - Claude expects this even if we have no resources
+            response = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": {
+                    "resources": []
+                }
+            }
+            logger.info(f"Resources List Response: {json.dumps(response, indent=2)}")
+            return response
+        
         elif method == "tools/list":
             # Return available tools
             response = {

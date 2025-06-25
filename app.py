@@ -2,9 +2,14 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
 import asyncio, time
 import json
+import logging
 from mcp_server_fetch.server import fetch_url, Fetch, check_may_autonomously_fetch_url
 from mcp.types import TextContent
 from pydantic import ValidationError
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -101,22 +106,29 @@ async def handle_mcp(request: Request):
     try:
         data = await request.json()
         
+        # Log incoming request
+        logger.info(f"MCP Request: {json.dumps(data, indent=2)}")
+        
         # Validate JSON-RPC 2.0 format
         if data.get("jsonrpc") != "2.0":
-            return {
+            error_response = {
                 "jsonrpc": "2.0",
                 "id": data.get("id"),
                 "error": {"code": -32600, "message": "Invalid Request"}
             }
+            logger.info(f"MCP Error Response: {json.dumps(error_response, indent=2)}")
+            return error_response
         
         method = data.get("method")
         params = data.get("params", {})
         request_id = data.get("id")
         
+        logger.info(f"Handling method: {method} with params: {params}")
+        
         if method == "initialize":
             # MCP initialization handshake - Claude web expects exact format
             client_version = params.get("protocolVersion", "")
-            expected_version = "2025-03-26"
+            expected_version = "2024-11-05"
             
             # Validate protocol version
             if client_version != expected_version:
@@ -133,7 +145,7 @@ async def handle_mcp(request: Request):
                     }
                 }
             
-            return {
+            response = {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": {
@@ -149,14 +161,17 @@ async def handle_mcp(request: Request):
                     }
                 }
             }
+            logger.info(f"Initialize Response: {json.dumps(response, indent=2)}")
+            return response
         
         elif method == "notifications/initialized":
             # Claude sends this after successful initialization - no response needed
+            logger.info("Received notifications/initialized - no response needed")
             return Response(status_code=204)
         
         elif method == "tools/list":
             # Return available tools
-            return {
+            response = {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": {
@@ -188,6 +203,8 @@ async def handle_mcp(request: Request):
                     ]
                 }
             }
+            logger.info(f"Tools List Response: {json.dumps(response, indent=2)}")
+            return response
         
         elif method == "tools/call":
             # Execute tool
@@ -262,16 +279,20 @@ async def handle_mcp(request: Request):
                 }
         
         else:
-            return {
+            error_response = {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "error": {"code": -32601, "message": "Method not found"}
             }
+            logger.info(f"Unknown method '{method}' - Error Response: {json.dumps(error_response, indent=2)}")
+            return error_response
     
     except Exception as e:
-        return {
+        error_response = {
             "jsonrpc": "2.0",
             "id": None,
             "error": {"code": -32700, "message": "Parse error"}
         }
+        logger.error(f"Exception in handle_mcp: {str(e)} - Error Response: {json.dumps(error_response, indent=2)}")
+        return error_response
 

@@ -114,17 +114,34 @@ async def handle_mcp(request: Request):
         request_id = data.get("id")
         
         if method == "initialize":
-            # MCP initialization handshake
+            # MCP initialization handshake - Claude web expects exact format
+            client_version = params.get("protocolVersion", "")
+            expected_version = "2025-03-26"
+            
+            # Validate protocol version
+            if client_version != expected_version:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32602,
+                        "message": "Unsupported protocol version",
+                        "data": {
+                            "supported": [expected_version],
+                            "requested": client_version
+                        }
+                    }
+                }
+            
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": {
-                    "protocolVersion": "2024-11-05",
+                    "protocolVersion": expected_version,
                     "capabilities": {
                         "tools": {
                             "listChanged": True
-                        },
-                        "prompts": {}
+                        }
                     },
                     "serverInfo": {
                         "name": "fetch-mcp",
@@ -132,6 +149,10 @@ async def handle_mcp(request: Request):
                     }
                 }
             }
+        
+        elif method == "notifications/initialized":
+            # Claude sends this after successful initialization - no response needed
+            return Response(status_code=204)
         
         elif method == "tools/list":
             # Return available tools
@@ -142,10 +163,27 @@ async def handle_mcp(request: Request):
                     "tools": [
                         {
                             "name": "fetch",
-                            "description": """Fetches a URL from the internet and optionally extracts its contents as markdown.
-
-Although originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.""",
-                            "inputSchema": Fetch.model_json_schema()
+                            "description": "Fetch content from a URL and convert to markdown",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "url": {
+                                        "type": "string",
+                                        "description": "The URL to fetch"
+                                    },
+                                    "max_length": {
+                                        "type": "integer",
+                                        "default": 5000,
+                                        "description": "Maximum number of characters to return"
+                                    },
+                                    "raw": {
+                                        "type": "boolean", 
+                                        "default": False,
+                                        "description": "Return raw HTML instead of markdown"
+                                    }
+                                },
+                                "required": ["url"]
+                            }
                         }
                     ]
                 }

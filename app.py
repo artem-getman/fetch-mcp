@@ -247,7 +247,19 @@ async def handle_mcp(request: Request):
                 }
             }
             logger.info(f"Tools List Response: {json.dumps(response, indent=2)}")
-            return response
+            
+            # Create explicit JSON response with headers
+            from fastapi.responses import JSONResponse
+            json_response = JSONResponse(
+                content=response,
+                status_code=200,
+                headers={
+                    "Content-Type": "application/json",
+                    "Content-Length": str(len(json.dumps(response)))
+                }
+            )
+            logger.info(f"Sending JSONResponse with headers: {dict(json_response.headers)}")
+            return json_response
         
         elif method == "tools/call":
             # Execute tool

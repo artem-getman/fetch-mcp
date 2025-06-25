@@ -23,49 +23,21 @@ app.add_middleware(
 )
 
 async def event_stream():
-    """SSE stream for Claude MCP integration - proactively send tools"""
+    """SSE stream for Claude MCP integration - send notifications to trigger tools/list"""
     # Send endpoint event first
     yield "event: endpoint\ndata: /mcp\n\n"
     
     # Wait a moment for initialization
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
     
-    # Proactively send tools list since Claude doesn't request it
-    tools_data = {
+    # Send empty notification to trigger Claude to call tools/list
+    notification = {
         "jsonrpc": "2.0",
-        "method": "notifications/tools/list_changed",
-        "params": {
-            "tools": [
-                {
-                    "name": "fetch",
-                    "description": "Fetch content from a URL and convert to markdown",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "url": {
-                                "type": "string",
-                                "description": "The URL to fetch"
-                            },
-                            "max_length": {
-                                "type": "integer",
-                                "default": 5000,
-                                "description": "Maximum number of characters to return"
-                            },
-                            "raw": {
-                                "type": "boolean", 
-                                "default": False,
-                                "description": "Return raw HTML instead of markdown"
-                            }
-                        },
-                        "required": ["url"]
-                    }
-                }
-            ]
-        }
+        "method": "notifications/tools/list_changed"
     }
     
-    yield f"event: message\ndata: {json.dumps(tools_data)}\n\n"
-    logger.info(f"Sent tools notification via SSE: {json.dumps(tools_data, indent=2)}")
+    yield f"data: {json.dumps(notification)}\n\n"
+    logger.info(f"Sent tools/list_changed notification via SSE: {json.dumps(notification, indent=2)}")
     
     # Continue with keepalive
     while True:

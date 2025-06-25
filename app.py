@@ -89,7 +89,12 @@ async def root():
 async def favicon():
     return Response(status_code=204)
 
-# MCP Protocol JSON-RPC 2.0 endpoint
+# MCP Protocol endpoints
+@app.get("/mcp")
+async def mcp_sse():
+    """MCP Server-Sent Events endpoint for real-time communication"""
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
 @app.post("/mcp")
 async def handle_mcp(request: Request):
     """Handle MCP JSON-RPC 2.0 requests"""

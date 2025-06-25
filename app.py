@@ -52,9 +52,29 @@ async def oauth_register():
     }
 
 @app.post("/token")
-async def oauth_token():
-    # Return a static bearer token; no real auth
-    return {"access_token": "dummy", "token_type": "bearer", "expires_in": 3600}
+async def oauth_token(request: Request):
+    # Handle both client_credentials flow and authorization_code flow
+    form_data = await request.form()
+    grant_type = form_data.get("grant_type", "client_credentials")
+    
+    # Return a static bearer token regardless of flow type
+    # A real implementation would validate the code/client/etc.
+    return {
+        "access_token": "fetch-mcp-access-token", 
+        "token_type": "bearer", 
+        "expires_in": 3600
+    }
+
+@app.get("/authorize")
+async def oauth_authorize(response_type: str, client_id: str, redirect_uri: str, state: str, 
+                        code_challenge: str = None, code_challenge_method: str = None,
+                        scope: str = None):
+    # For simplicity, auto-authorize and redirect immediately with a dummy code
+    # In production, this would typically show a consent screen
+    from urllib.parse import urlencode
+    params = {"code": "auth_code_12345", "state": state}
+    redirect_url = f"{redirect_uri}?{urlencode(params)}"
+    return Response(status_code=302, headers={"Location": redirect_url})
 
 # Quiet 404s for / and favicons
 @app.get("/")

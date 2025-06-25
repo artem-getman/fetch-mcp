@@ -23,23 +23,11 @@ app.add_middleware(
 )
 
 async def event_stream():
-    """SSE stream for Claude MCP integration - send notifications to trigger tools/list"""
+    """SSE stream for Claude MCP integration - minimal keepalive only"""
     # Send endpoint event first
     yield "event: endpoint\ndata: /mcp\n\n"
     
-    # Wait a moment for initialization
-    await asyncio.sleep(2)
-    
-    # Send empty notification to trigger Claude to call tools/list
-    notification = {
-        "jsonrpc": "2.0",
-        "method": "notifications/tools/list_changed"
-    }
-    
-    yield f"data: {json.dumps(notification)}\n\n"
-    logger.info(f"Sent tools/list_changed notification via SSE: {json.dumps(notification, indent=2)}")
-    
-    # Continue with keepalive
+    # Just keepalive - let Claude request tools naturally
     while True:
         await asyncio.sleep(30)
         yield f"event: ping\ndata: {int(time.time())}\n\n"
@@ -247,18 +235,7 @@ async def handle_mcp(request: Request):
                 }
             }
             logger.info(f"Tools List Response: {json.dumps(response, indent=2)}")
-            
-            # Create explicit JSON response with headers  
-            from fastapi.responses import JSONResponse
-            json_response = JSONResponse(
-                content=response,
-                status_code=200,
-                headers={
-                    "Content-Type": "application/json"
-                }
-            )
-            logger.info(f"Sending JSONResponse with headers: {dict(json_response.headers)}")
-            return json_response
+            return response
         
         elif method == "tools/call":
             # Execute tool

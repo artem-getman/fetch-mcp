@@ -205,38 +205,40 @@ async def handle_mcp(request: Request):
             response = {
                 "jsonrpc": "2.0",
                 "id": request_id,
-                "tools": [
-                    {
-                        "name": "fetch",
-                        "title": "Fetch URL",
-                        "description": "Fetch content from a URL and convert to markdown",
-                        "annotations": {
+                "result": {
+                    "tools": [
+                        {
+                            "name": "fetch",
                             "title": "Fetch URL",
-                            "readOnlyHint": True,
-                            "openWorldHint": True
-                        },
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "url": {
-                                    "type": "string",
-                                    "description": "The URL to fetch"
-                                },
-                                "max_length": {
-                                    "type": "integer",
-                                    "default": 5000,
-                                    "description": "Maximum number of characters to return"
-                                },
-                                "raw": {
-                                    "type": "boolean", 
-                                    "default": False,
-                                    "description": "Return raw HTML instead of markdown"
-                                }
+                            "description": "Fetch content from a URL and convert to markdown",
+                            "annotations": {
+                                "title": "Fetch URL",
+                                "readOnlyHint": True,
+                                "openWorldHint": True
                             },
-                            "required": ["url"]
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "url": {
+                                        "type": "string",
+                                        "description": "The URL to fetch"
+                                    },
+                                    "max_length": {
+                                        "type": "integer",
+                                        "default": 5000,
+                                        "description": "Maximum number of characters to return"
+                                    },
+                                    "raw": {
+                                        "type": "boolean", 
+                                        "default": False,
+                                        "description": "Return raw HTML instead of markdown"
+                                    }
+                                },
+                                "required": ["url"]
+                            }
                         }
-                    }
-                ]
+                    ]
+                }
             }
             logger.info(f"Tools List Response: {json.dumps(response, indent=2)}")
             return response

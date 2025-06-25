@@ -121,7 +121,9 @@ async def handle_mcp(request: Request):
                 "result": {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {
-                        "tools": {},
+                        "tools": {
+                            "listChanged": True
+                        },
                         "prompts": {}
                     },
                     "serverInfo": {

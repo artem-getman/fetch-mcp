@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 import asyncio, time
 import json
 import logging
-from mcp_server_fetch.server import fetch_url, Fetch, check_may_autonomously_fetch_url
+from src.mcp_server_fetch.server import fetch_url, Fetch, check_may_autonomously_fetch_url
 from mcp.types import TextContent
 from pydantic import ValidationError
 

@@ -23,9 +23,51 @@ app.add_middleware(
 )
 
 async def event_stream():
-    """Minimal SSE stream to satisfy Render health check / Claude handshake."""
-    # Immediately send a greeting event, then keepalive pings every 30s.
-    yield "event: hello\ndata: fetch-mcp ready\n\n"
+    """SSE stream for Claude MCP integration - proactively send tools"""
+    # Send endpoint event first
+    yield "event: endpoint\ndata: /mcp\n\n"
+    
+    # Wait a moment for initialization
+    await asyncio.sleep(1)
+    
+    # Proactively send tools list since Claude doesn't request it
+    tools_data = {
+        "jsonrpc": "2.0",
+        "method": "notifications/tools/list_changed",
+        "params": {
+            "tools": [
+                {
+                    "name": "fetch",
+                    "description": "Fetch content from a URL and convert to markdown",
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "description": "The URL to fetch"
+                            },
+                            "max_length": {
+                                "type": "integer",
+                                "default": 5000,
+                                "description": "Maximum number of characters to return"
+                            },
+                            "raw": {
+                                "type": "boolean", 
+                                "default": False,
+                                "description": "Return raw HTML instead of markdown"
+                            }
+                        },
+                        "required": ["url"]
+                    }
+                }
+            ]
+        }
+    }
+    
+    yield f"event: message\ndata: {json.dumps(tools_data)}\n\n"
+    logger.info(f"Sent tools notification via SSE: {json.dumps(tools_data, indent=2)}")
+    
+    # Continue with keepalive
     while True:
         await asyncio.sleep(30)
         yield f"event: ping\ndata: {int(time.time())}\n\n"

@@ -118,6 +118,12 @@ async def mcp_sse():
 async def handle_mcp(request: Request):
     """Handle MCP JSON-RPC 2.0 requests"""
     try:
+        # Log ALL incoming requests before parsing
+        raw_body = await request.body()
+        logger.info(f"RAW REQUEST BODY: {raw_body.decode()}")
+        
+        # Reset request for JSON parsing
+        request._body = raw_body
         data = await request.json()
         
         # Log incoming request

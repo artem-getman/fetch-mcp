@@ -4,6 +4,15 @@ import asyncio, time
 
 app = FastAPI()
 
+# Allow browser-based clients (Claude settings panel) to access SSE
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"]
+)
+
 async def event_stream():
     """Minimal SSE stream to satisfy Render health check / Claude handshake."""
     # Immediately send a greeting event, then keepalive pings every 30s.

@@ -209,7 +209,13 @@ async def handle_mcp(request: Request):
                     "tools": [
                         {
                             "name": "fetch",
+                            "title": "Fetch URL",
                             "description": "Fetch content from a URL and convert to markdown",
+                            "annotations": {
+                                "title": "Fetch URL",
+                                "readOnlyHint": True,
+                                "openWorldHint": True
+                            },
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {

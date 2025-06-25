@@ -1,9 +1,6 @@
 services:
   - type: web
     name: mcp-fetch
-    env: python
+    env: docker
     plan: starter
-    pythonVersion: 3.11
-    buildCommand: pip install -r requirements.txt
-    startCommand: ./start.sh
     healthCheckPath: /sse

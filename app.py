@@ -159,9 +159,7 @@ async def handle_mcp(request: Request):
                 "result": {
                     "protocolVersion": expected_version,
                     "capabilities": {
-                        "tools": {
-                            "listChanged": True
-                        }
+                        "tools": {}
                     },
                     "serverInfo": {
                         "name": "fetch-mcp",

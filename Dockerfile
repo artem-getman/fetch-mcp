@@ -3,12 +3,12 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip wheel --no-deps -r requirements.txt
+    pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
 # ---------- run stage ----------
 FROM python:3.11-slim
 WORKDIR /app
-COPY --from=builder /root/.cache/pip /wheels
+COPY --from=builder /wheels /wheels
 COPY requirements.txt .
 RUN pip install --no-index --find-links /wheels -r requirements.txt
 COPY . .
